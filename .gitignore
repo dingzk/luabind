@@ -1,0 +1,11 @@
+.idea
+a.out
+main
+test
+core
+CMakeCache.txt
+Makefile
+CMakeFiles
+cmake_install.cmake
+CTestTestfile.cmake
+cmake-build-debug
