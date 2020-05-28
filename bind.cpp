@@ -2,9 +2,9 @@
 #include <iostream>
 #include <assert.h>
 
-
-// g++ -std=c++11 -I/data1/apache2/htdocs/LuaJIT/src -Wl,-rpath=/data1/apache2/htdocs/LuaJIT/src  -L/data1/apache2/htdocs/LuaJIT/src -lluajit t.cpp
-
+static void dd(lua_State *L) {
+    printf("top %d\n", lua_gettop(L));
+}
 
 static void lbind_message (const char *msg) {
     fprintf(stderr, "\n=====\nError: %s\n=====\n", msg);
@@ -40,7 +40,7 @@ static int l_msghandler (lua_State *L) {
     return 1;
 }
 
-static int lbind_docall (lua_State *L, int narg, int nres) {
+int lbind_docall (lua_State *L, int narg, int nres) {
     int status;
     int base = lua_gettop(L) - narg;  /* function index */
     if (base < 0) assert(0);
@@ -59,7 +59,7 @@ static int l_dofile(lua_State *L) {
     if (status == LUA_OK) status = lbind_docall(L, 0, 0);
     lbind_report(L, status);
 
-    lua_pushinteger(L, status == LUA_OK);
+    lua_pushboolean(L, status == LUA_OK);
 
     return 1;
 }
@@ -68,7 +68,7 @@ static int l_dofile(lua_State *L) {
 ** Main body of stand-alone interpreter (to be called in protected mode).
 ** Reads the options and handles them all.
 */
-static int lbind_dofile (lua_State *L, const char *filename) {
+int lbind_dofile (lua_State *L, const char *filename) {
     lua_pushcfunction(L, &l_dofile);  /* to call 'l_dofile' in protected mode */
     lua_pushlightuserdata(L, const_cast<char *> (filename));
 
@@ -76,39 +76,37 @@ static int lbind_dofile (lua_State *L, const char *filename) {
 
     int ok = 0;
     if (status == LUA_OK) {
-        ok = lua_tointeger(L, -1);
+        ok = lua_toboolean(L, -1);
         lua_pop(L , 1);     /*necessary */
     }
 
     return ok;
 }
 
-int main(void)
-{
-    int status = LUA_OK, result;
-    lua_State *L = luaL_newstate();  /* create state */
-    if (L == NULL) {
-        fprintf(stderr, "cannot create state: not enough memory");
-        return EXIT_FAILURE;
+static int l_register(lua_State *L) {
+    const char *funcname = (const char *)lua_touserdata(L, 1);
+    luaL_checktype(L, 2, LUA_TLIGHTUSERDATA);
+
+    lua_getglobal(L, "CPP");
+    if (lua_type(L, -1) != LUA_TTABLE) {
+        lua_createtable(L, 0 /* narr */, 1 /* nrec */);
+        lua_pushvalue(L, -1);
+        lua_setglobal(L, "CPP");
     }
 
-    result = lbind_dofile(L, "t.lua");
-    printf("load file ok ? %d\n", result);
-    if(!result) {
-        return EXIT_FAILURE;
-    }
+    lua_pushcfunction(L, (lua_CFunction)lua_touserdata(L, 2));
+    lua_setfield(L, -2, funcname);
 
-    lua_getglobal(L, "init");
-    lua_pushinteger(L, 10);
+    lua_pop(L, -1);
 
-    int error = lbind_docall(L, 1, 1);
-    printf("call func ok ? %d\n", error == LUA_OK);
+    return 0;
+}
 
-    printf("stack num is: %d\n", lua_gettop(L));
+int lbind_register(lua_State *L, const char *funcname, lua_CFunction f) {
 
-    printf("return : %d\n", lua_tointeger(L, -1));
+    lua_pushcfunction(L, l_register);
+    lua_pushlightuserdata(L, const_cast<char *> (funcname));
+    lua_pushlightuserdata(L, (void *)f);
 
-    lua_close(L);
-
-    return (result && status == LUA_OK) ? EXIT_SUCCESS : EXIT_FAILURE;
+    return lbind_docall(L, 2, 0);
 }

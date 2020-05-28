@@ -1,4 +1,9 @@
+
+--print(CPP.func(3))
+
 function init(ntouch)
-    --return 10/1
-    return #"helloworld123"
+
+    print(CPP.func(3))
+
+    return ntouch
 end
