@@ -2,7 +2,7 @@
 
 // g++ -std=c++11 -I/data1/apache2/htdocs/LuaJIT/src -Wl,-rpath=/data1/apache2/htdocs/LuaJIT/src  -L/data1/apache2/htdocs/LuaJIT/src -lluajit test.cpp bind.cpp
 
-int func(lua_State *L) {
+int user_func(lua_State *L) {
 
     int a = lua_tointeger(L, -1);
 
@@ -26,7 +26,7 @@ int main(void)
         return EXIT_FAILURE;
     }
 
-    lbind_register(L, "func", func);
+    lbind_register(L, "func", user_func);
 
     lua_getglobal(L, "init");
     lua_pushinteger(L, 11);
