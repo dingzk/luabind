@@ -1,6 +1,8 @@
-#include <lua.hpp>
-#include <iostream>
-#include <assert.h>
+//
+// Created by zhenkai on 2020/6/2.
+//
+
+#include "luabind.h"
 
 static void dd(lua_State *L) {
     printf("top %d\n", lua_gettop(L));
@@ -83,15 +85,52 @@ int lbind_dofile (lua_State *L, const char *filename) {
     return ok;
 }
 
+static int l_proxy_func(lua_State *L) {
+    int n;
+    lbind_CFunction f = (lbind_CFunction) lua_touserdata(L, lua_upvalueindex(1));
+    // convert request
+    Request request(L);
+    request.gencargs();
+    // construct response
+    Response response(L);
+
+    f(request, response);
+
+    n = response.genluaargs();
+    // call func
+
+    return n;
+}
+
+static int l_register_proxy(lua_State *L) {
+    const char *funcname = (const char *)lua_touserdata(L, 1);
+    luaL_checktype(L, 2, LUA_TLIGHTUSERDATA);
+
+    lua_getglobal(L, CPP);
+    if (lua_type(L, -1) != LUA_TTABLE) {
+        lua_createtable(L, 0 /* narr */, 1 /* nrec */);
+        lua_pushvalue(L, -1);
+        lua_setglobal(L, CPP);
+    }
+
+    lua_pushvalue(L, 2);
+    lua_pushcclosure(L, l_proxy_func, 1); // lua_pushcclosure also pops these values from the stack.
+    lua_setfield(L, -2, funcname);
+
+    lua_pop(L, -1);
+
+    return 0;
+}
+
 static int l_register(lua_State *L) {
     const char *funcname = (const char *)lua_touserdata(L, 1);
     luaL_checktype(L, 2, LUA_TLIGHTUSERDATA);
 
-    lua_getglobal(L, "CPP");
+    lua_getglobal(L, CPP);
     if (lua_type(L, -1) != LUA_TTABLE) {
         lua_createtable(L, 0 /* narr */, 1 /* nrec */);
         lua_pushvalue(L, -1);
-        lua_setglobal(L, "CPP");
+        lua_setglobal(L, CPP);
     }
 
     lua_pushcfunction(L, (lua_CFunction)lua_touserdata(L, 2));
@@ -102,11 +141,14 @@ static int l_register(lua_State *L) {
     return 0;
 }
 
-int lbind_register(lua_State *L, const char *funcname, lua_CFunction f) {
-
-    lua_pushcfunction(L, l_register);
+int lbind_register(lua_State *L, const char *funcname, void * func, bool isoriginfunc) {
+    if (isoriginfunc ) {
+        lua_pushcfunction(L, l_register);
+    } else {
+        lua_pushcfunction(L, l_register_proxy);
+    }
     lua_pushlightuserdata(L, const_cast<char *> (funcname));
-    lua_pushlightuserdata(L, (void *)f);
+    lua_pushlightuserdata(L, func);
 
     return lbind_docall(L, 2, 0);
 }

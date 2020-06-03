@@ -1,4 +1,4 @@
-#include "bind.h"
+#include "luabind.h"
 
 // g++ -std=c++11 -I/data1/apache2/htdocs/LuaJIT/src -Wl,-rpath=/data1/apache2/htdocs/LuaJIT/src  -L/data1/apache2/htdocs/LuaJIT/src -lluajit test.cpp bind.cpp
 
@@ -6,9 +6,28 @@ int user_func(lua_State *L) {
 
     int a = lua_tointeger(L, -1);
 
+    lua_pushstring(L, "luacfunction");
     lua_pushinteger(L, a * a);
 
-    return 1;
+    return 2;
+}
+
+void *u_func(Request &request, Response &response) {
+
+    const char *a = request.tostring(0);
+    const char *b = request.tostring(1);
+    int c = request.tonumber(2);
+
+    const char *h = "const_char";
+    char *strtmp = strdup(const_cast<char *>("hello"));
+
+//    response.pushstring(h);
+    response.pushdupstring(strtmp);
+    response.pushstring(b);
+    response.pushnumber(c);
+
+    free(strtmp);
+
 }
 
 int main(void)
@@ -26,7 +45,8 @@ int main(void)
         return EXIT_FAILURE;
     }
 
-    lbind_register(L, "func", user_func);
+    lbind_register(L, "func", (void *)u_func, false);
+    lbind_register(L, "func2", (void *)user_func, true);
 
     lua_getglobal(L, "init");
     lua_pushinteger(L, 11);

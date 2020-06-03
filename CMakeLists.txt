@@ -30,7 +30,8 @@ link_directories(${LUA_LIB_PATH})
 #AUX_SOURCE_DIRECTORY(. RPC_SOURCE)
 
 set(RPC_SOURCE
-        bind.cpp
+        luabind.cpp
+        bindvar.cpp
 )
 
 #开启后,默认生成的为动态库
